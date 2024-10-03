@@ -6,45 +6,44 @@ global _start                   ; entry point
 
 segment .data
     ; === SYSCALL SYMBOLS ===
-    sys_read   equ  0x00000000  ; 0
-    sys_write  equ  0x00000001  ; 1
-    sys_open   equ  0x00000002  ; 2
-    sys_close  equ  0x00000003  ; 3
-    sys_exit   equ  0x0000003C  ; 60
-    sys_mmap   equ  0x00000009  ; 9
-    sys_unmap  equ  0x0000000B  ; 11
+    SYS_READ   equ  0x00000000  ; 0
+    SYS_WRITE  equ  0x00000001  ; 1
+    SYS_OPEN   equ  0x00000002  ; 2
+    SYS_CLOSE  equ  0x00000003  ; 3
+    SYS_EXIT   equ  0x0000003C  ; 60
+    SYS_MMAP   equ  0x00000009  ; 9
+    SYS_UNMAP  equ  0x0000000B  ; 11
     ; === SYS_OPEN FLAGS ===
-    o_rdonly   equ  0x00000000  ; read only
-    o_wronly   equ  0x00000001  ; write only
-    o_rdwr     equ  0x00000002  ; read and write
-    o_create   equ  0x00000100  ; create if not exists
-    o_excl     equ  0x00000200  ; signal "failure" if file already exists
-    o_truncate equ  0x00000400  ; truncate to 0
-    o_append   equ  0x00000800  ; append to file
-    o_nonblock equ  0x00001000  ; non blocking mode
-    o_sync     equ  0x00002000  ; write in sync mode
-    o_dsync    equ  0x00004000  ; write sync, but not m-data
-    o_rsync    equ  0x00008000  ; read sync mode
-    o_noctty   equ  0x00010000  ; no controlling terminal
-    o_nofollow equ  0x00020000  ; no follow symlinks
-    o_clexec   equ  0x00040000  ; close fd on exec
-    o_dir      equ  0x00080000  ; fail if not directory
+    __O_RDONLY   equ  0x00000000  ; read only
+    __O_WRONLY   equ  0x00000001  ; write only
+    __O_RDWR     equ  0x00000002  ; read and write
+    __O_CREATE   equ  0x00000100  ; create if not exists
+    __O_EXCL     equ  0x00000200  ; signal "failure" if file already exists
+    __O_TRUNC equ  0x00000400  ; truncate to 0
+    __O_APPEND   equ  0x00000800  ; append to file
+    __O_NONBLOCK equ  0x00001000  ; non blocking mode
+    __O_SYNC     equ  0x00002000  ; write in sync mode
+    __O_DSYNC    equ  0x00004000  ; write sync, but not m-data
+    __O_RSYNC    equ  0x00008000  ; read sync mode
+    __O_NOCTTY   equ  0x00010000  ; no controlling terminal
+    __O_NOFOLLOW equ  0x00020000  ; no follow symlinks
+    __O_CLEXEC   equ  0x00040000  ; close fd on exec
+    __O_DIR      equ  0x00080000  ; fail if not directory
     ; === SYS_OPEN PROTECTION MODE ===
-    s_irusr    equ  0x00000100  ; read permissions for owner
-    s_iwusr    equ  0x00000080  ; write permissions for owner
-    s_ixusr    equ  0x00000040  ; execute permission for owner
-    s_irgrp    equ  0x00000020  ; read permission for group
-    s_iwgrp    equ  0x00000010  ; write permission for the group
-    s_ixgrp    equ  0x00000008  ; execute permission for group
-    s_iroth    equ  0x00000004  ; read permission for others
-    s_iwoth    equ  0x00000002  ; write permission for others
-    s_ixoth    equ  0x00000001  ; execute permission for others
-    ; === STREAM DIRECTION ===
-    stin       equ  0b00000000  ; 0(standard in), for stdin
-    stout      equ  0b00000001  ; 1(standard out), for stdout
+    __S_IRUSR    equ  0x00000100  ; read permissions for owner
+    __S_IWUSR    equ  0x00000080  ; write permissions for owner
+    __S_IXUSR    equ  0x00000040  ; execute permission for owner
+    __S_IRGRP    equ  0x00000020  ; read permission for group
+    __S_IWGRP    equ  0x00000010  ; write permission for the group
+    __S_IXGRP    equ  0x00000008  ; execute permission for group
+    __S_IROTH    equ  0x00000004  ; read permission for others
+    __S_IWOTH    equ  0x00000002  ; write permission for others
+    __S_IXOTH    equ  0x00000001  ; execute permission for others
+    ; === STREAM MODE ===
+    __STDIN      equ  0b00000000  ; 0(standard in), for stdin
+    __STDOUT     equ  0b00000001  ; 1(standard out), for stdout
     ; === General ===
-    _tdir_      db   '/home/user/code/asm/test-dir' ; target directory
-    _fst_       equ  0b00010000  ; file size threshold, will not read below this value
+    __root_dir  db   '/home/user/code/asm/test-dir' ; target directory
     _pm_        db   0x45,0x6E,0x74,0x65,0x72,0x20                   ; 'Enter fileName: ', 0
                 db   0x66,0x69,0x6C,0x65,0x4E,0x61
                 db   0x6D,0x65,0x3A,0x20,0x0a,0x0d, 0x0  
@@ -128,124 +127,123 @@ segment .data
                 db   0x21, 0x0a, 0x0d, 0x00
     _enotempty_sz equ  $ - _enotempty
 
-    _pnum_      db   '               ', 0x0 ; ascii rapresentation of d
-    _pnum2_     db   '               ', 0x0 ; ascii rapresentation of d
-    _pnumSZ_    equ  $ - _pnum_   
-    _fd_        db   0        
-    _maxfns_    equ  0x00ff
-    string db "string", 0
+    __strdec_value_tmp   times 20 db   ' ', 0x0 ; ascii rapresentation of d
+    __strdec_value_fin   times 20 db   ' ', 0x0 ; ascii rapresentation of d
+    __strdec_value_len   equ  $ - __strdec_value_tmp   
+    __max_decimal_len    equ  0x0A
+    __fd                 db   0        
+    
 segment .bss 
-    _fn_        resb 0b00010000  ; max 16 bytes for filename
-    _eOPC_      resb 0x00000000  ; memory address variable for error code reference
+    __err_code      resb 0x00000000  ; memory address variable for error code reference
 %macro print 2                  ; [1=buffer;2=size]
-    mov  rax, sys_write         ; write syscall
-    mov  rdi, stout             ; standard output code
+    mov  rax, SYS_WRITE         ; write syscall
+    mov  rdi, __STDOUT             ; standard output code
     lea  rsi, [%1]              ; load address of string
     mov  rdx, %2                ; load size of string
     syscall 
 %endmacro
 
 %macro prompt 2                 ; [1=buffer;2=size]
-    mov  rax, sys_read          ; read syscall
-    mov  rdi, stin              ; for reading
+    mov  rax, SYS_READ          ; read syscall
+    mov  rdi, __STDIN              ; for reading
     mov  rsi, %1                ; buffer
     mov  rdx, %2                ; buffer size
     syscall
 %endmacro
-%assign testnum 2345
 segment .text
 
-%macro int2str 1
-    mov r8,  %1
-    mov rsi, 10
-    mov rax, r8
-    lea rdi, [_pnum_]
-    xor r15, r15
-    _loop:
-    xor rdx, rdx
-    div rsi
-    add rdx, 48
-    mov byte [rdi], dl
-    inc rdi
-    inc r15
-    cmp rax, 0
-    jne _loop
-    mov rbx, r15
-    inc rbx
-    xor r12, r12
-    sub rdi, r15
-    dec r15
-    lea rsi, [rdi]
-    l2:
-    mov al, [rsi + r12]
-    inc r12
-    push rax
-    dec r15
-    cmp r15, -1
-    jle l2done
-    jmp l2
-    l2done:
-    lea rsi, [_pnum2_]
-    xor r11, r11
-    _popback:
-        pop rax
-        mov [rsi + r11], rax
-        inc r11
-        cmp r11, r12
-        jne _popback    
-    mov byte [rsi + r11], 0x0
-    lea rax, [rsi]
+; function for converting integer value into ascii string representation
+; -------------------------------------
+; arg1) the decimal value to convert
+; returns result in RAX
+; -------------------------------------
+%macro int2str 1                    ; int to string conversion macro
+    mov rax, %1                     ; move argument 1 into rax register
+    mov rsi, 10                     ; set rsi to 10 for division
+    lea rdi, [__strdec_value_tmp]   ; load effective address of output buffer into rdi
+    xor rcx, rcx                    ; clear rcx for counting digits
+_decimal_converter:                 ; loop to convert decimal
+    cmp rcx, __strdec_value_len     ; check if threshold was hit
+    jae _ldone                      ; jump to end if threshold reached
+    xor rdx, rdx                    ; clear rdx at beginning of loop
+    div rsi                         ; divide rax by 10, quotient in rax, remainder in rdx
+    add rdx, '0'                    ; convert remainder to ASCII
+    mov [rdi], dl                   ; store ASCII character in output buffer
+    inc rdi                         ; move to next byte in output buffer
+    inc rcx                         ; increment digit count
+    test rax, rax                   ; check if rax is 0 (end of sequence)
+    jnz _decimal_converter          ; repeat if not zero
+    xor r12, r12                    ; clear r12 for reverse index tracking
+_reverse_byte_order:                ; loop to reverse byte order
+    dec rdi                         ; move index pointer to previous byte
+    cmp r12, rcx                    ; compare r12 with digit count
+    jae _ldone                           ; jump to end if r12 >= rcx
+    mov al, [rdi]                        ; load byte from rdi into al
+    mov [__strdec_value_fin + r12], al   ; store byte in reversed position
+    inc r12                              ; increment reverse index
+    jmp _reverse_byte_order              ; continue reversing
+_ldone:                                        ; conversion done
+    mov byte [__strdec_value_fin + r12], 0x0   ; null-terminate the string
+    lea rax, [__strdec_value_fin]              ; load address of result into rax for return
 %endmacro
+
+; function for converting integer string value into decimal representation
+; -------------------------------------
+; arg1) string to convert
+; returns result in RAX
+; -------------------------------------
+%macro str2int 1                  ; string to int conversion macro
+    lea rsi, [%1]                 ; load effective address of input string into rsi
+    xor rax, rax                  ; clear rax to accumulate the result
+    xor rcx, rcx                  ; clear rcx for digit count
+    mov rbx, 10                   ; set rbx to 10 for base conversion
+_parse_string:                    ; loop to parse the string
+    cmp rcx, __max_decimal_len    ; range check
+    jae _done                     ; done if range > T
+    movzx rdx, byte [rsi + rcx]   ; load the next byte (character) from the string
+    test rdx, rdx                 ; check if we reached the null terminator
+    jz _done                      ; if zero, we are done parsing
+    sub rdx, '0'                  ; convert ASCII character to integer (0-9)
+    cmp rdx, 9                    ; check if the character is a valid digit
+    ja _done                      ; if not, exit the loop
+    imul rax, rbx                 ; multiply current result by 10
+    add rax, rdx                  ; add the new digit to the result
+    inc rcx                       ; move to the next character
+    jmp _parse_string             ; repeat for the next character
+_done:                            ; conversion done
+%endmacro
+
     
 _start:
     __EZprologue:
-    xor r11, r11
-    lea r11, [_pnum2_]
-    mov byte [r11+0], 'V'
-    mov byte [r11+1], 'A'
-    mov byte [r11+2], 'L'
-    mov byte [r11+3], 'U'
-    mov byte [r11+4], 'E'
-    mov byte [r11+5], ':'
-    mov byte [r11+6], ' '
-    mov byte [r11+7], 0
-    mov r12, 8
-    
-    print r11, r12
-    mov r8, 3394893943454
-    int2str r8
-    mov r10, rax
-    mov r12, rbx
-    print r10, r12
 
-
-        jmp __EZepilogue              ; do not fall-through exception block
-    __EZexcept_control:               ; exception handling control block
-        cmp byte [_eOPC_], -0x000D    ; EACCES  -13
+    jmp __EZepilogue                      ; do not fall-through exception block
+    __EZexcept_control:                   ; exception handling control block
+        cmp byte [__err_code], -0x000D    ; EACCES  -13
         je __eacces                   
-        cmp byte [_eOPC_], -0x000B    ; EEXIST  -11
+        cmp byte [__err_code], -0x000B    ; EEXIST  -11
         je __eexist
-        cmp byte [_eOPC_], -0x000E    ; EFAULT  -14
+        cmp byte [__err_code], -0x000E    ; EFAULT  -14
         je __efault
-        cmp byte [_eOPC_], -0x0016    ; EINVAL  -22
+        cmp byte [__err_code], -0x0016    ; EINVAL  -22
         je __einval
-        cmp byte [_eOPC_], -0x0002    ; ENOENT  -2
+        cmp byte [__err_code], -0x0002    ; ENOENT  -2
         je __enoent
-        cmp byte [_eOPC_], -0x001C    ; ENOSPC  -28
+        cmp byte [__err_code], -0x001C    ; ENOSPC  -28
         je __enospc
-        cmp byte [_eOPC_], -0x0014    ; ENOTDIR -20
+        cmp byte [__err_code], -0x0014    ; ENOTDIR -20
         je __enotdir
-        cmp byte [_eOPC_], -0x0015    ; EISDIR  -21
+        cmp byte [__err_code], -0x0015    ; EISDIR  -21
         je __eisdir
-        cmp byte [_eOPC_], -0x0018    ; EMFILE  -24
+        cmp byte [__err_code], -0x0018    ; EMFILE  -24
         je __emfile
-        cmp byte [_eOPC_], -0x001B    ; ENFILE  -27
+        cmp byte [__err_code], -0x001B    ; ENFILE  -27
         je __enfile
-        cmp byte [_eOPC_], -0x001E    ; EROFS   -30
+        cmp byte [__err_code], -0x001E    ; EROFS   -30
         je __erofs
-        cmp byte [_eOPC_], -0x001D    ; ENOEMPTY -39
+        cmp byte [__err_code], -0x001D    ; ENOEMPTY -39
         je __enotempty
-        cmp byte [_eOPC_], -0x0024    ; ENAMETOOLONG -36
+        cmp byte [__err_code], -0x0024    ; ENAMETOOLONG -36
         jmp __enametoolong
         
         ; no match...
@@ -297,6 +295,6 @@ __EZepilogue:                          ; release resource, clean up
 ; clear or bho...
         
 __EZexit:
-    mov  rax, sys_exit   ; exit program
+    mov  rax, SYS_EXIT   ; exit program
     xor  rdi, rdi        ; xor(reset) return value
     syscall
