@@ -1,19 +1,16 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; READ FILES, WRITE FILES 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 global _start                   ; entry point
 
 segment .data
     ; === SYSCALL SYMBOLS ===
-    SYS_READ     equ   0x00000000  ; 0
-    SYS_WRITE    equ   0x00000001  ; 1
-    SYS_OPEN     equ   0x00000002  ; 2
-    SYS_CLOSE    equ   0x00000003  ; 3
-    SYS_EXIT     equ   0x0000003C  ; 60
-    SYS_MMAP     equ   0x00000009  ; 9
-    SYS_UNMAP    equ   0x0000000B  ; 11
-    SYS_GETDENTS equ   0x0000004E  ; 78
+    SYS_READ        equ   0x00000000  ; 0
+    SYS_WRITE       equ   0x00000001  ; 1
+    SYS_OPEN        equ   0x00000002  ; 2
+    SYS_CLOSE       equ   0x00000003  ; 3
+    SYS_EXIT        equ   0x0000003C  ; 60
+    SYS_MMAP        equ   0x00000009  ; 9
+    SYS_UNMAP       equ   0x0000000B  ; 11
+    SYS_GETDENTS    equ   0x0000004E  ; 78
+    SYS_GETDENTS_64 equ   0x000000D9  ; 217
     ; === SYS_OPEN FLAGS ===
     __O_RDONLY   equ  0x00000000  ; read only
     __O_WRONLY   equ  0x00000001  ; write only
@@ -132,12 +129,13 @@ segment .data
     __strdec_value_fin   times 20 db   ' ', 0x0 ; ascii rapresentation of d
     __strdec_value_len   equ  $ - __strdec_value_tmp   
     __max_decimal_len    equ  0x0A
-    __fd                 db   0        
+    __fd                 db   0       
+    __dir_buffer         times 1024 db 0        ; size of the dirent buffer to hold
+ 
     
 segment .bss 
     __err_code      resb 0xff   ; memory address variable for error code reference
     __cdir_entity   resb 0x0F   ; current directory entity 
-    __dir_buffer    resq 0b10000000 << 4
 %macro print 2                  ; [1=buffer;2=size]
     mov  rax, SYS_WRITE         ; write syscall
     mov  rdi, __STDOUT          ; standard output code
@@ -217,56 +215,45 @@ _done:                            ; conversion done
 %endmacro
     
 _start:
-
+    
 __EZprologue:
-
-    __EZfd_open:
+__EZfd_open:
     mov rax, SYS_OPEN             ; open file descriptor and return in rax new fd
     lea rdi, [__root_dir]         ; pointer to root dir name char byte sequence(string)
     mov rsi, __O_RDONLY           ; open for read only
-    mov rdx, __S_IRUSR | __S_IWUSR | __S_IRGRP | __S_IROTH ; set permissions
+    xor rdx, rdx
     syscall                       ; open
-
     mov byte [__err_code], al     ; store error code into __err_code
     cmp byte [__err_code], -0x01  ; check for errors
     jle __EZexcept_control        ; errors? transfer control
-    
     mov [__fd], rax               ; store new file descriptor into __fd variable
-    cmp byte [__fd], 0x03         ; is __fd id >= 3 ?
+    cmp byte [__fd], 0x03         ; is __fd id >= 3?
     jb __enotdir
-
-    __EZdirscan:
-    mov rax, SYS_GETDENTS         ; sys_getdents for directory scanning
+    
+__EZdirscan:
+    mov rax, SYS_GETDENTS_64      ; sys_getdents64(64-bit mode) for directory scanning
     mov rdi, [__fd]               ; load fd id
     lea rsi, [__dir_buffer]       ; load address to store result structure
-    mov rdx, 0xFF                 ; max number of bytes for structure
+    mov rdx, 0x400                ; max number of bytes for structure
     syscall
-
     test rax, rax                 ; verify syscall result
     JZ __EPscan_end               ; end of scanning
+    mov rbx, rax                  ; n of bytes read from fd
+    xor rcx, rcx
+    xor rdx, rdx
+__snext:                          ; directory traversal block
+    cmp rcx, rbx                  ; check if end of directory
+    jae __EPscan_end
+    movzx rdx, byte [__dir_buffer + rcx + 0x10]
+    lea rsi, [__dir_buffer + rcx + 0x13]
+    add rcx, rdx
+    jmp __snext
 
-    mov rcx, rax                  ; store number of bytes read into rcx register counter
-    lea rsi, [__dir_buffer]       ; lead address of loaded buffer into RBX 
-
-    __dscanNxEntity:
-    mov rax, [rsi]   ; store name of entry
-    cmp rax, 0
-    je __EPscan_end
-    add rsi, rax          ; move current buffer pointer
-    
-    jnz __dscanNxEntity   ; repeat to next loop
-    mov rax, [rsi + 0x10]
-    add rsi, rax
-
-    jmp __EZdirscan       ; ? dir recursion?
-
-    __EPscan_end:         ; close FD
+__EPscan_end:                     ; close directory descriptor
     mov rax, SYS_CLOSE
     mov rdi, [__fd]
     syscall
-
     jmp __EZepilogue
-    
     __EZexcept_control:                   ; exception handling control block
         cmp byte [__err_code], -0x000D    ; EACCES  -13
         je __eacces                   
